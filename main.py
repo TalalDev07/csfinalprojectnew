@@ -1,10 +1,11 @@
-
+import os
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
+from PIL import Image, ImageTk
 import backend
 
 
-# sample data
+# Sample initial data seeding
 def ensure_initial_data():
     stalls = backend.get_stalls()
     if not stalls:
@@ -20,6 +21,31 @@ def ensure_initial_data():
         backend.add_item(s_id, "Churros with Nutella", 2.250, "Cinnamon churros with dip", "")
 
 
+def center_window(window, width, height, parent=None):
+    window.update_idletasks()
+    if parent:
+        p_win = parent.winfo_toplevel() if hasattr(parent, "winfo_toplevel") else parent
+        p_win.update_idletasks()
+        p_x = p_win.winfo_rootx()
+        p_y = p_win.winfo_rooty()
+        p_w = p_win.winfo_width()
+        p_h = p_win.winfo_height()
+        if p_w > 1 and p_h > 1:
+            x = p_x + (p_w - width) // 2
+            y = p_y + (p_h - height) // 2
+        else:
+            s_w = window.winfo_screenwidth()
+            s_h = window.winfo_screenheight()
+            x = (s_w - width) // 2
+            y = (s_h - height) // 2
+    else:
+        s_w = window.winfo_screenwidth()
+        s_h = window.winfo_screenheight()
+        x = (s_w - width) // 2
+        y = (s_h - height) // 2
+    window.geometry(f"{width}x{height}+{max(0, x)}+{max(0, y)}")
+
+
 class CarnivalApp(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -27,24 +53,23 @@ class CarnivalApp(tk.Tk):
         self.title("Carnival POS System")
         self.geometry("1100x720")
         self.minsize(950, 600)
+        center_window(self, 1100, 720)
         self.configure(bg="#f1f5f9")
 
-        # current stall
+        # Current stall context
         self.current_stall_id = None
         self.current_stall_name = ""
         self.current_stall_type = ""
 
-        # screens
+        # Screen container
         self.container = tk.Frame(self, bg="#f1f5f9")
         self.container.pack(fill="both", expand=True)
 
-        
         self.frames = {
             "StallSelectionScreen": StallSelectionScreen(self.container, controller=self),
             "StallPOSScreen": StallPOSScreen(self.container, controller=self)
         }
 
-        
         self.show_frame("StallSelectionScreen")
 
     def show_frame(self, page_name, **kwargs):
@@ -63,11 +88,9 @@ class StallSelectionScreen(tk.Frame):
         super().__init__(parent, bg="#f1f5f9")
         self.controller = controller
 
-        
         wrapper = tk.Frame(self, bg="#f1f5f9")
         wrapper.place(relx=0.5, rely=0.5, anchor="center")
 
-        
         card = tk.Frame(wrapper, bg="#ffffff", padx=40, pady=35, relief="solid", bd=1)
         card.pack()
 
@@ -88,7 +111,7 @@ class StallSelectionScreen(tk.Frame):
             fg="#64748b"
         ).pack(pady=(0, 25))
 
-        # stall dropdown
+        # Stall dropdown
         tk.Label(
             card,
             text="Choose Stall:",
@@ -108,7 +131,7 @@ class StallSelectionScreen(tk.Frame):
         )
         self.stall_dropdown.pack(fill="x", pady=(0, 15), ipady=3)
 
-        # password
+        # Password entry
         tk.Label(
             card,
             text="Stall Password:",
@@ -132,7 +155,7 @@ class StallSelectionScreen(tk.Frame):
         self.password_entry.pack(fill="x", pady=(0, 5), ipady=4)
         self.password_entry.bind("<Return>", lambda e: self.login())
 
-        # password hint
+        # Password hint
         self.hint_label = tk.Label(
             card,
             text="Default password for Burger Station: burger123",
@@ -142,7 +165,7 @@ class StallSelectionScreen(tk.Frame):
         )
         self.hint_label.pack(fill="x", pady=(0, 18))
 
-        
+        # Open POS terminal button
         login_btn = tk.Button(
             card,
             text="Open POS Terminal",
@@ -151,7 +174,6 @@ class StallSelectionScreen(tk.Frame):
             fg="#ffffff",
             activebackground="#1d4ed8",
             activeforeground="#ffffff",
-            highlightbackground="#ffffff",
             relief="flat",
             cursor="hand2",
             padx=15,
@@ -160,10 +182,8 @@ class StallSelectionScreen(tk.Frame):
         )
         login_btn.pack(fill="x", pady=(0, 12))
 
-        
         ttk.Separator(card, orient="horizontal").pack(fill="x", pady=10)
 
-        
         actions_row = tk.Frame(card, bg="#ffffff")
         actions_row.pack(fill="x")
 
@@ -173,7 +193,6 @@ class StallSelectionScreen(tk.Frame):
             font=("Helvetica", 10, "bold"),
             bg="#f8fafc",
             fg="#334155",
-            highlightbackground="#ffffff",
             cursor="hand2",
             padx=8,
             pady=4,
@@ -187,7 +206,6 @@ class StallSelectionScreen(tk.Frame):
             font=("Helvetica", 10, "bold"),
             bg="#f8fafc",
             fg="#334155",
-            highlightbackground="#ffffff",
             cursor="hand2",
             padx=8,
             pady=4,
@@ -222,9 +240,7 @@ class StallSelectionScreen(tk.Frame):
             return
 
         stall = self.stalls_data[selected_idx]
-        stall_id = stall[0]
-        stall_name = stall[1]
-        stall_type = stall[2]
+        stall_id, stall_name, stall_type = stall[0], stall[1], stall[2]
         password = self.password_entry.get()
 
         if not password:
@@ -256,10 +272,10 @@ class StallSelectionScreen(tk.Frame):
     def open_create_stall_dialog(self):
         dialog = tk.Toplevel(self)
         dialog.title("Create New Stall")
-        dialog.geometry("400x350")
+        center_window(dialog, 400, 350, parent=self)
         dialog.resizable(False, False)
         dialog.configure(bg="#ffffff")
-        dialog.transient(self)
+        dialog.transient(self.winfo_toplevel())
         dialog.grab_set()
 
         container = tk.Frame(dialog, bg="#ffffff", padx=25, pady=20)
@@ -303,7 +319,7 @@ class StallSelectionScreen(tk.Frame):
             font=("Helvetica", 11, "bold"),
             bg="#2563eb",
             fg="#ffffff",
-            highlightbackground="#ffffff",
+            cursor="hand2",
             command=submit
         ).pack(fill="x", pady=10)
 
@@ -312,8 +328,9 @@ class StallPOSScreen(tk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent, bg="#f8fafc")
         self.controller = controller
+        self.card_photos = []
 
-        # header
+        # Top header
         header = tk.Frame(self, bg="#ffffff", padx=20, pady=12, relief="solid", bd=1)
         header.pack(fill="x", side="top")
 
@@ -323,7 +340,6 @@ class StallPOSScreen(tk.Frame):
             font=("Helvetica", 11, "bold"),
             bg="#f1f5f9",
             fg="#334155",
-            highlightbackground="#ffffff",
             cursor="hand2",
             padx=10,
             pady=4,
@@ -350,24 +366,36 @@ class StallPOSScreen(tk.Frame):
         )
         self.type_badge.pack(side="left")
 
+        # Top-right action buttons
         tk.Button(
             header,
             text="+ Add Menu Item",
             font=("Helvetica", 10, "bold"),
             bg="#2563eb",
             fg="#ffffff",
-            highlightbackground="#ffffff",
             cursor="hand2",
             padx=10,
             pady=4,
             command=self.open_add_item_dialog
         ).pack(side="right")
 
-        # main area
+        tk.Button(
+            header,
+            text="Sales Report",
+            font=("Helvetica", 10, "bold"),
+            bg="#0f766e",
+            fg="#ffffff",
+            cursor="hand2",
+            padx=10,
+            pady=4,
+            command=self.open_sales_report_dialog
+        ).pack(side="right", padx=(0, 8))
+
+        # Main workspace
         workspace = tk.Frame(self, bg="#f8fafc", padx=15, pady=15)
         workspace.pack(fill="both", expand=True)
 
-        # menu items
+        # Left side: Menu items
         left_box = tk.Frame(workspace, bg="#ffffff", relief="solid", bd=1, padx=15, pady=15)
         left_box.pack(side="left", fill="both", expand=True, padx=(0, 10))
 
@@ -399,7 +427,7 @@ class StallPOSScreen(tk.Frame):
         self.menu_canvas.pack(side="left", fill="both", expand=True)
         self.menu_scrollbar.pack(side="right", fill="y")
 
-        # ------------------ RIGHT: CART and TOTAL ------------------
+        # Right side: Cart and total
         right_box = tk.Frame(workspace, bg="#ffffff", relief="solid", bd=1, padx=15, pady=15, width=380)
         right_box.pack(side="right", fill="both")
         right_box.pack_propagate(False)
@@ -435,7 +463,7 @@ class StallPOSScreen(tk.Frame):
         self.cart_canvas.pack(side="left", fill="both", expand=True)
         self.cart_scrollbar.pack(side="right", fill="y")
 
-        # total and buttons
+        # Total and action buttons
         summary_box = tk.Frame(right_box, bg="#f8fafc", relief="solid", bd=1, padx=12, pady=12)
         summary_box.pack(fill="x", pady=(10, 0))
 
@@ -457,7 +485,6 @@ class StallPOSScreen(tk.Frame):
             font=("Helvetica", 11, "bold"),
             bg="#ef4444",
             fg="#ffffff",
-            highlightbackground="#f8fafc",
             cursor="hand2",
             height=2,
             command=self.cancel_order_click
@@ -470,7 +497,6 @@ class StallPOSScreen(tk.Frame):
             font=("Helvetica", 11, "bold"),
             bg="#16a34a",
             fg="#ffffff",
-            highlightbackground="#f8fafc",
             cursor="hand2",
             height=2,
             command=self.complete_order_click
@@ -503,6 +529,7 @@ class StallPOSScreen(tk.Frame):
         for widget in self.menu_items_frame.winfo_children():
             widget.destroy()
 
+        self.card_photos.clear()
         items = backend.get_items(stall_id)
 
         if not items:
@@ -521,10 +548,25 @@ class StallPOSScreen(tk.Frame):
             item_name = item[2]
             price = item[3]
             description = item[4] or ""
+            image_path = item[5] or ""
 
-            card = tk.Frame(self.menu_items_frame, bg="#ffffff", relief="solid", bd=1, padx=12, pady=10)
+            card = tk.Frame(self.menu_items_frame, bg="#ffffff", relief="solid", bd=1, padx=10, pady=10)
             card.pack(fill="x", pady=4, padx=2)
 
+            # Thumbnail image
+            card_img = backend.get_card_image(image_path, size=(75, 75))
+            if card_img:
+                photo = ImageTk.PhotoImage(card_img)
+                self.card_photos.append(photo)
+                img_lbl = tk.Label(card, image=photo, bg="#ffffff")
+                img_lbl.pack(side="left", padx=(0, 12))
+            else:
+                placeholder = tk.Frame(card, bg="#f1f5f9", width=75, height=75)
+                placeholder.pack_propagate(False)
+                placeholder.pack(side="left", padx=(0, 12))
+                tk.Label(placeholder, text="🍽️", font=("Segoe UI Emoji", 20), bg="#f1f5f9").place(relx=0.5, rely=0.5, anchor="center")
+
+            # Item details
             info = tk.Frame(card, bg="#ffffff")
             info.pack(side="left", fill="both", expand=True)
 
@@ -533,18 +575,48 @@ class StallPOSScreen(tk.Frame):
                 tk.Label(info, text=description, font=("Helvetica", 9), bg="#ffffff", fg="#64748b", anchor="w").pack(fill="x")
             tk.Label(info, text=f"KWD {price:.3f}", font=("Helvetica", 11, "bold"), bg="#ffffff", fg="#2563eb", anchor="w").pack(fill="x", pady=(2, 0))
 
+            # Action buttons
+            actions = tk.Frame(card, bg="#ffffff")
+            actions.pack(side="right", padx=(5, 0))
+
             tk.Button(
-                card,
+                actions,
                 text="+ Add",
-                font=("Helvetica", 11, "bold"),
+                font=("Helvetica", 10, "bold"),
                 bg="#2563eb",
                 fg="#ffffff",
-                highlightbackground="#ffffff",
                 cursor="hand2",
                 padx=12,
-                pady=5,
+                pady=3,
                 command=lambda i_id=item_id: self.add_item_click(i_id)
-            ).pack(side="right", padx=5)
+            ).pack(side="top", fill="x", pady=(0, 4))
+
+            btn_sub_row = tk.Frame(actions, bg="#ffffff")
+            btn_sub_row.pack(side="bottom", fill="x")
+
+            tk.Button(
+                btn_sub_row,
+                text="Edit",
+                font=("Helvetica", 9),
+                bg="#f1f5f9",
+                fg="#334155",
+                cursor="hand2",
+                padx=6,
+                pady=2,
+                command=lambda it=item: self.open_edit_item_dialog(it)
+            ).pack(side="left", padx=(0, 3))
+
+            tk.Button(
+                btn_sub_row,
+                text="Delete",
+                font=("Helvetica", 9),
+                bg="#fee2e2",
+                fg="#dc2626",
+                cursor="hand2",
+                padx=6,
+                pady=2,
+                command=lambda i_id=item_id, n=item_name: self.delete_item_click(i_id, n)
+            ).pack(side="left")
 
     def add_item_click(self, item_id):
         backend.add_to_order(item_id)
@@ -553,6 +625,14 @@ class StallPOSScreen(tk.Frame):
     def remove_item_click(self, item_id):
         backend.remove_from_order(item_id)
         self.refresh_order_display()
+
+    def delete_item_click(self, item_id, item_name):
+        if messagebox.askyesno("Delete Item", f"Are you sure you want to delete '{item_name}' from the menu?"):
+            backend.delete_item(item_id)
+            if item_id in backend.cart:
+                backend.cart.pop(item_id, None)
+                self.refresh_order_display()
+            self.load_menu_items(self.controller.current_stall_id)
 
     def cancel_order_click(self):
         if not backend.cart:
@@ -624,7 +704,6 @@ class StallPOSScreen(tk.Frame):
                     text="-",
                     font=("Helvetica", 9, "bold"),
                     bg="#f1f5f9",
-                    highlightbackground="#ffffff",
                     width=2,
                     cursor="hand2",
                     command=lambda i_id=item_id: self.remove_item_click(i_id)
@@ -637,7 +716,6 @@ class StallPOSScreen(tk.Frame):
                     text="+",
                     font=("Helvetica", 9, "bold"),
                     bg="#f1f5f9",
-                    highlightbackground="#ffffff",
                     width=2,
                     cursor="hand2",
                     command=lambda i_id=item_id: self.add_item_click(i_id)
@@ -649,10 +727,10 @@ class StallPOSScreen(tk.Frame):
     def open_add_item_dialog(self):
         dialog = tk.Toplevel(self)
         dialog.title("Add Menu Item")
-        dialog.geometry("400x350")
+        center_window(dialog, 420, 420, parent=self)
         dialog.resizable(False, False)
         dialog.configure(bg="#ffffff")
-        dialog.transient(self)
+        dialog.transient(self.winfo_toplevel())
         dialog.grab_set()
 
         container = tk.Frame(dialog, bg="#ffffff", padx=25, pady=20)
@@ -662,20 +740,39 @@ class StallPOSScreen(tk.Frame):
 
         tk.Label(container, text="Item Name:", font=("Helvetica", 10, "bold"), bg="#ffffff", fg="#334155", anchor="w").pack(fill="x")
         name_entry = tk.Entry(container, font=("Helvetica", 11), bg="#ffffff", fg="#000000", bd=1, relief="solid")
-        name_entry.pack(fill="x", pady=(2, 10), ipady=3)
+        name_entry.pack(fill="x", pady=(2, 8), ipady=3)
 
         tk.Label(container, text="Price (e.g. 2.500):", font=("Helvetica", 10, "bold"), bg="#ffffff", fg="#334155", anchor="w").pack(fill="x")
         price_entry = tk.Entry(container, font=("Helvetica", 11), bg="#ffffff", fg="#000000", bd=1, relief="solid")
-        price_entry.pack(fill="x", pady=(2, 10), ipady=3)
+        price_entry.pack(fill="x", pady=(2, 8), ipady=3)
 
         tk.Label(container, text="Description:", font=("Helvetica", 10, "bold"), bg="#ffffff", fg="#334155", anchor="w").pack(fill="x")
         desc_entry = tk.Entry(container, font=("Helvetica", 11), bg="#ffffff", fg="#000000", bd=1, relief="solid")
-        desc_entry.pack(fill="x", pady=(2, 15), ipady=3)
+        desc_entry.pack(fill="x", pady=(2, 8), ipady=3)
+
+        tk.Label(container, text="Image File (optional):", font=("Helvetica", 10, "bold"), bg="#ffffff", fg="#334155", anchor="w").pack(fill="x")
+        img_row = tk.Frame(container, bg="#ffffff")
+        img_row.pack(fill="x", pady=(2, 15))
+        img_entry = tk.Entry(img_row, font=("Helvetica", 11), bg="#ffffff", fg="#000000", bd=1, relief="solid")
+        img_entry.pack(side="left", fill="x", expand=True, ipady=3)
+
+        def browse_img():
+            f = filedialog.askopenfilename(
+                parent=dialog,
+                title="Select Item Image",
+                filetypes=[("Image Files", "*.png;*.jpg;*.jpeg;*.gif;*.webp"), ("All Files", "*.*")]
+            )
+            if f:
+                img_entry.delete(0, tk.END)
+                img_entry.insert(0, f)
+
+        tk.Button(img_row, text="Browse...", font=("Helvetica", 9), bg="#f1f5f9", fg="#334155", cursor="hand2", command=browse_img).pack(side="right", padx=(5, 0))
 
         def submit():
             name = name_entry.get().strip()
             price_text = price_entry.get().strip()
             desc = desc_entry.get().strip()
+            img_path = img_entry.get().strip()
 
             if not name or not price_text:
                 messagebox.showerror("Error", "Name and price are required.", parent=dialog)
@@ -688,7 +785,7 @@ class StallPOSScreen(tk.Frame):
                 return
 
             try:
-                backend.add_item(self.controller.current_stall_id, name, price, desc, "")
+                backend.add_item(self.controller.current_stall_id, name, price, desc, img_path)
                 messagebox.showinfo("Success", f"'{name}' added to menu!", parent=dialog)
                 dialog.destroy()
                 self.load_menu_items(self.controller.current_stall_id)
@@ -701,19 +798,179 @@ class StallPOSScreen(tk.Frame):
             font=("Helvetica", 11, "bold"),
             bg="#2563eb",
             fg="#ffffff",
-            highlightbackground="#ffffff",
+            cursor="hand2",
             command=submit
-        ).pack(fill="x", pady=10)
+        ).pack(fill="x", pady=5)
+
+    def open_edit_item_dialog(self, item):
+        item_id, _, item_name, price, desc, img_path, _ = item
+        dialog = tk.Toplevel(self)
+        dialog.title("Edit Menu Item")
+        center_window(dialog, 420, 420, parent=self)
+        dialog.resizable(False, False)
+        dialog.configure(bg="#ffffff")
+        dialog.transient(self.winfo_toplevel())
+        dialog.grab_set()
+
+        container = tk.Frame(dialog, bg="#ffffff", padx=25, pady=20)
+        container.pack(fill="both", expand=True)
+
+        tk.Label(container, text="Edit Menu Item", font=("Helvetica", 14, "bold"), bg="#ffffff", fg="#0f172a").pack(pady=(0, 15))
+
+        tk.Label(container, text="Item Name:", font=("Helvetica", 10, "bold"), bg="#ffffff", fg="#334155", anchor="w").pack(fill="x")
+        name_entry = tk.Entry(container, font=("Helvetica", 11), bg="#ffffff", fg="#000000", bd=1, relief="solid")
+        name_entry.insert(0, item_name)
+        name_entry.pack(fill="x", pady=(2, 8), ipady=3)
+
+        tk.Label(container, text="Price (e.g. 2.500):", font=("Helvetica", 10, "bold"), bg="#ffffff", fg="#334155", anchor="w").pack(fill="x")
+        price_entry = tk.Entry(container, font=("Helvetica", 11), bg="#ffffff", fg="#000000", bd=1, relief="solid")
+        price_entry.insert(0, f"{price:.3f}")
+        price_entry.pack(fill="x", pady=(2, 8), ipady=3)
+
+        tk.Label(container, text="Description:", font=("Helvetica", 10, "bold"), bg="#ffffff", fg="#334155", anchor="w").pack(fill="x")
+        desc_entry = tk.Entry(container, font=("Helvetica", 11), bg="#ffffff", fg="#000000", bd=1, relief="solid")
+        desc_entry.insert(0, desc or "")
+        desc_entry.pack(fill="x", pady=(2, 8), ipady=3)
+
+        tk.Label(container, text="Image File (optional):", font=("Helvetica", 10, "bold"), bg="#ffffff", fg="#334155", anchor="w").pack(fill="x")
+        img_row = tk.Frame(container, bg="#ffffff")
+        img_row.pack(fill="x", pady=(2, 15))
+        img_entry = tk.Entry(img_row, font=("Helvetica", 11), bg="#ffffff", fg="#000000", bd=1, relief="solid")
+        img_entry.insert(0, img_path or "")
+        img_entry.pack(side="left", fill="x", expand=True, ipady=3)
+
+        def browse_img():
+            f = filedialog.askopenfilename(
+                parent=dialog,
+                title="Select Item Image",
+                filetypes=[("Image Files", "*.png;*.jpg;*.jpeg;*.gif;*.webp"), ("All Files", "*.*")]
+            )
+            if f:
+                img_entry.delete(0, tk.END)
+                img_entry.insert(0, f)
+
+        tk.Button(img_row, text="Browse...", font=("Helvetica", 9), bg="#f1f5f9", fg="#334155", cursor="hand2", command=browse_img).pack(side="right", padx=(5, 0))
+
+        def submit():
+            name = name_entry.get().strip()
+            price_text = price_entry.get().strip()
+            desc_val = desc_entry.get().strip()
+            img_val = img_entry.get().strip()
+
+            if not name or not price_text:
+                messagebox.showerror("Error", "Name and price are required.", parent=dialog)
+                return
+
+            try:
+                new_price = float(price_text)
+            except ValueError:
+                messagebox.showerror("Error", "Please enter a valid numeric price.", parent=dialog)
+                return
+
+            try:
+                backend.update_item(item_id, name, new_price, desc_val, img_val)
+                messagebox.showinfo("Success", f"'{name}' updated successfully!", parent=dialog)
+                dialog.destroy()
+                self.load_menu_items(self.controller.current_stall_id)
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to update item: {e}", parent=dialog)
+
+        tk.Button(
+            container,
+            text="Save Changes",
+            font=("Helvetica", 11, "bold"),
+            bg="#2563eb",
+            fg="#ffffff",
+            cursor="hand2",
+            command=submit
+        ).pack(fill="x", pady=5)
+
+    def open_sales_report_dialog(self):
+        stall_id = self.controller.current_stall_id
+        stall_name = self.controller.current_stall_name
+
+        total_orders, total_sales, avg_order = backend.get_sales_report(stall_id)
+        best_sellers = backend.get_best_selling_items(stall_id)
+
+        dialog = tk.Toplevel(self)
+        dialog.title(f"Sales Report - {stall_name}")
+        center_window(dialog, 460, 500, parent=self)
+        dialog.resizable(False, False)
+        dialog.configure(bg="#ffffff")
+        dialog.transient(self.winfo_toplevel())
+        dialog.grab_set()
+
+        container = tk.Frame(dialog, bg="#ffffff", padx=20, pady=20)
+        container.pack(fill="both", expand=True)
+
+        tk.Label(container, text="📊 SALES REPORT", font=("Helvetica", 15, "bold"), bg="#ffffff", fg="#0f172a").pack()
+        tk.Label(container, text=stall_name.upper(), font=("Helvetica", 11), bg="#ffffff", fg="#64748b").pack(pady=(2, 12))
+
+        # Stats cards
+        stats_box = tk.Frame(container, bg="#f8fafc", relief="solid", bd=1, padx=12, pady=10)
+        stats_box.pack(fill="x", pady=(0, 15))
+
+        stat_row = tk.Frame(stats_box, bg="#f8fafc")
+        stat_row.pack(fill="x")
+
+        # Total Orders
+        c1 = tk.Frame(stat_row, bg="#f8fafc")
+        c1.pack(side="left", fill="both", expand=True)
+        tk.Label(c1, text="Orders", font=("Helvetica", 9), bg="#f8fafc", fg="#64748b").pack()
+        tk.Label(c1, text=str(total_orders), font=("Helvetica", 14, "bold"), bg="#f8fafc", fg="#0f172a").pack()
+
+        # Total Revenue
+        c2 = tk.Frame(stat_row, bg="#f8fafc")
+        c2.pack(side="left", fill="both", expand=True)
+        tk.Label(c2, text="Revenue", font=("Helvetica", 9), bg="#f8fafc", fg="#64748b").pack()
+        tk.Label(c2, text=f"KWD {total_sales:.3f}", font=("Helvetica", 14, "bold"), bg="#f8fafc", fg="#16a34a").pack()
+
+        # Avg Order
+        c3 = tk.Frame(stat_row, bg="#f8fafc")
+        c3.pack(side="left", fill="both", expand=True)
+        tk.Label(c3, text="Avg Order", font=("Helvetica", 9), bg="#f8fafc", fg="#64748b").pack()
+        tk.Label(c3, text=f"KWD {avg_order:.3f}", font=("Helvetica", 14, "bold"), bg="#f8fafc", fg="#2563eb").pack()
+
+        # Best sellers
+        tk.Label(container, text="Top Selling Items", font=("Helvetica", 12, "bold"), bg="#ffffff", fg="#0f172a", anchor="w").pack(fill="x", pady=(5, 5))
+
+        list_box = tk.Frame(container, bg="#ffffff", relief="solid", bd=1, padx=10, pady=8)
+        list_box.pack(fill="both", expand=True, pady=(0, 15))
+
+        if not best_sellers:
+            tk.Label(list_box, text="No orders recorded for this stall yet.", font=("Helvetica", 10, "italic"), bg="#ffffff", fg="#94a3b8", pady=25).pack()
+        else:
+            hdr = tk.Frame(list_box, bg="#ffffff")
+            hdr.pack(fill="x", pady=(0, 4))
+            tk.Label(hdr, text="Item", font=("Helvetica", 9, "bold"), bg="#ffffff", fg="#64748b", anchor="w").pack(side="left")
+            tk.Label(hdr, text="Qty Sold", font=("Helvetica", 9, "bold"), bg="#ffffff", fg="#64748b", anchor="e").pack(side="right")
+            ttk.Separator(list_box, orient="horizontal").pack(fill="x", pady=2)
+
+            for rank, (name, qty) in enumerate(best_sellers, 1):
+                row = tk.Frame(list_box, bg="#ffffff")
+                row.pack(fill="x", pady=3)
+                tk.Label(row, text=f"{rank}. {name}", font=("Helvetica", 10), bg="#ffffff", fg="#0f172a", anchor="w").pack(side="left")
+                tk.Label(row, text=f"{qty} pcs", font=("Helvetica", 10, "bold"), bg="#ffffff", fg="#2563eb", anchor="e").pack(side="right")
+
+        tk.Button(
+            container,
+            text="Close",
+            font=("Helvetica", 11, "bold"),
+            bg="#f1f5f9",
+            fg="#334155",
+            cursor="hand2",
+            command=dialog.destroy
+        ).pack(fill="x")
 
 
 class ReceiptModal(tk.Toplevel):
     def __init__(self, parent, order_id, stall_name, cart_snapshot, total):
         super().__init__(parent)
         self.title("Receipt - Order Completed")
-        self.geometry("400x480")
+        center_window(self, 400, 520, parent=parent)
         self.resizable(False, False)
         self.configure(bg="#ffffff")
-        self.transient(parent)
+        self.transient(parent.winfo_toplevel() if hasattr(parent, "winfo_toplevel") else parent)
         self.grab_set()
 
         container = tk.Frame(self, bg="#ffffff", padx=20, pady=20)
@@ -744,13 +1001,34 @@ class ReceiptModal(tk.Toplevel):
         tk.Label(container, text=f"TOTAL PAID: KWD {total:.3f}", font=("Courier", 13, "bold"), bg="#ffffff", fg="#16a34a").pack(pady=6)
         tk.Label(container, text="Thank you for visiting!\nEnjoy the Carnival!", font=("Courier", 9), bg="#ffffff", fg="#64748b", justify="center").pack(pady=(0, 10))
 
+        btn_box = tk.Frame(container, bg="#ffffff")
+        btn_box.pack(fill="x")
+
+        def download_pdf():
+            try:
+                pdf_path = backend.download_receipt_pdf(order_id)
+                if pdf_path:
+                    messagebox.showinfo("Receipt Saved", f"PDF receipt saved successfully!\nLocation: {pdf_path}", parent=self)
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to generate receipt PDF: {e}", parent=self)
+
         tk.Button(
-            container,
+            btn_box,
+            text="Download PDF Receipt",
+            font=("Helvetica", 10, "bold"),
+            bg="#0f766e",
+            fg="#ffffff",
+            cursor="hand2",
+            command=download_pdf
+        ).pack(fill="x", pady=(0, 5))
+
+        tk.Button(
+            btn_box,
             text="Next Order",
-            font=("Helvetica", 11, "bold"),
+            font=("Helvetica", 10, "bold"),
             bg="#2563eb",
             fg="#ffffff",
-            highlightbackground="#ffffff",
+            cursor="hand2",
             command=self.destroy
         ).pack(fill="x")
 
