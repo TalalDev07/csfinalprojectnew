@@ -6,11 +6,11 @@ from PIL import Image, ImageOps
 from reportlab.pdfgen import canvas
  
 # connecting db --------------------------------------------- 
- 
+
 con = mysql.connector.connect(
     host="localhost",
     user="root",
-    password="Talal"
+    password="mouli999"
 )
 
 cur = con.cursor()
@@ -74,25 +74,21 @@ def setup_database():
   
     con.commit() 
  
-setup_database()  # Runs every startup. Creates database table if it doesn't exist. 
+setup_database()  # Creates database tables if they do not exist
  
  
 # structures ---------------------------------------------- 
  
-cart = {}  # Dictionary storing item_id as key and quantity as value. Used to create a receipt. 
+cart = {}  # Dictionary storing item_id as key and quantity as value.
  
  
 # stall functions --------------------------------------------- 
  
 def hash_password(password): 
-    # converts password into a hash before storing/comparing it 
- 
     return hashlib.sha256(password.encode()).hexdigest() 
  
  
 def create_stall(stall_name, password, stall_type): 
-    # creates a new stall/project 
- 
     password_hash = hash_password(password) 
  
     cur.execute(""" 
@@ -109,13 +105,10 @@ def create_stall(stall_name, password, stall_type):
     )) 
  
     con.commit() 
- 
     return cur.lastrowid 
  
  
 def get_stalls(): 
-    # returns all stalls to the stall selection screen 
- 
     cur.execute(""" 
         SELECT 
             stall_id, 
@@ -124,15 +117,10 @@ def get_stalls():
         FROM stalls 
         ORDER BY stall_name 
     """) 
- 
-    stalls = cur.fetchall() 
- 
-    return stalls 
+    return cur.fetchall() 
  
  
 def get_stall(stall_id): 
-    # returns one specific stall 
- 
     cur.execute(""" 
         SELECT 
             stall_id, 
@@ -141,15 +129,10 @@ def get_stall(stall_id):
         FROM stalls 
         WHERE stall_id = %s 
     """, (stall_id,)) 
- 
-    stall = cur.fetchone() 
- 
-    return stall 
+    return cur.fetchone() 
  
  
 def verify_stall_password(stall_id, password): 
-    # checks whether the entered stall password is correct 
- 
     entered_hash = hash_password(password) 
  
     cur.execute(""" 
@@ -159,20 +142,15 @@ def verify_stall_password(stall_id, password):
     """, (stall_id,)) 
  
     result = cur.fetchone() 
- 
     if result is None: 
         return False 
  
-    stored_hash = result[0] 
- 
-    return entered_hash == stored_hash 
+    return entered_hash == result[0] 
  
  
 # item functions --------------------------------------------- 
  
 def add_item(stall_id, name, price, description, imagepath): 
-    # adds new item in db and assigns it to a stall 
- 
     cur.execute(""" 
         INSERT INTO items ( 
             stall_id, 
@@ -191,23 +169,28 @@ def add_item(stall_id, name, price, description, imagepath):
     )) 
  
     con.commit() 
- 
     return cur.lastrowid 
  
-def get_card_image(image_path):
-    # resize product image to fit inside menu card
-
-    if not image_path or not os.path.exists(image_path):
+def get_card_image(image_path, size=(75, 75)):
+    # Resizes and formats product image to fit inside menu card
+    if not image_path:
         return None
 
-    image = Image.open(image_path)
-    image = ImageOps.fit(image, (240, 180))
+    if not os.path.isabs(image_path):
+        candidate = os.path.join(os.path.dirname(os.path.abspath(__file__)), image_path)
+        if os.path.exists(candidate):
+            image_path = candidate
 
-    return image
+    if not os.path.exists(image_path):
+        return None
+
+    try:
+        image = Image.open(image_path)
+        return ImageOps.fit(image, size)
+    except Exception:
+        return None
  
 def get_items(stall_id): 
-    # returns all active items belonging to one stall to main menu 
- 
     cur.execute(""" 
         SELECT * 
         FROM items 
@@ -215,29 +198,19 @@ def get_items(stall_id):
         AND is_active = 1 
         ORDER BY item_name 
     """, (stall_id,)) 
- 
-    items = cur.fetchall() 
- 
-    return items 
+    return cur.fetchall() 
  
  
 def get_item(item_id): 
-    # returns a specific item from db to menu/receipt 
- 
     cur.execute(""" 
         SELECT * 
         FROM items 
         WHERE item_id = %s 
     """, (item_id,)) 
- 
-    item = cur.fetchone() 
- 
-    return item 
+    return cur.fetchone() 
  
  
 def update_item(item_id, name, price, description, imagepath): 
-    # edits an existing item's information 
- 
     cur.execute(""" 
         UPDATE items 
         SET item_name = %s, 
@@ -257,8 +230,6 @@ def update_item(item_id, name, price, description, imagepath):
  
  
 def delete_item(item_id): 
-    # hides item from menu without deleting old receipt information 
- 
     cur.execute(""" 
         UPDATE items 
         SET is_active = 0 
@@ -271,56 +242,34 @@ def delete_item(item_id):
 # order functions --------------------------------------------- 
  
 def add_to_order(item_id): 
-    # adds new item into the cart 
- 
     item = get_item(item_id) 
  
     if item is None or item[6] == 0: 
         return False 
  
-    if item_id in cart: 
-        cart[item_id] += 1 
-    else: 
-        cart[item_id] = 1 
- 
-    print(cart) 
- 
+    cart[item_id] = cart.get(item_id, 0) + 1 
     return True 
  
  
 def remove_from_order(item_id): 
-    # removes item currently in cart 
- 
     if item_id in cart: 
-        if cart[item_id] == 1: 
+        if cart[item_id] <= 1: 
             cart.pop(item_id) 
         else: 
             cart[item_id] -= 1 
  
-    print(cart) 
- 
  
 def calculate_total(): 
-    # calc total bill -- gets cart item, gets its price, 
-    # multiplies by quantity, updates running total. 
- 
-    total = 0 
- 
+    total = 0.0
     for item_id, quantity in cart.items(): 
         item = get_item(item_id) 
- 
         if item is not None: 
-            price = item[3] 
-            subtotal = price * quantity 
-            total += subtotal 
+            total += float(item[3]) * quantity 
  
     return round(total, 3) 
  
  
 def complete_order(stall_id): 
-    # complete the order, make a receipt id for it, 
-    # insert items into one and receipts into one table. 
- 
     if not cart: 
         return None 
  
@@ -345,17 +294,11 @@ def complete_order(stall_id):
  
         for item_id, quantity in cart.items(): 
             item = get_item(item_id) 
- 
             if item is None: 
                 raise ValueError("An item in the cart no longer exists.") 
  
-            item_stall_id = item[1] 
-            unit_price = item[3] 
- 
-            if item_stall_id != stall_id: 
-                raise ValueError( 
-                    "The cart contains an item belonging to another stall." 
-                ) 
+            if item[1] != stall_id: 
+                raise ValueError("Cart contains an item belonging to another stall.") 
  
             cur.execute(""" 
                 INSERT INTO order_items ( 
@@ -369,21 +312,18 @@ def complete_order(stall_id):
                 order_id, 
                 item_id, 
                 quantity, 
-                unit_price 
+                float(item[3]) 
             )) 
  
         con.commit() 
         clear_order() 
- 
         return order_id 
  
     except Exception: 
         con.rollback() 
         raise  
-
+ 
 def download_receipt_pdf(order_id):
-    # gets order information from database
-
     cur.execute("""
         SELECT orders.total_price, orders.timestamp,
                stalls.stall_name
@@ -393,15 +333,12 @@ def download_receipt_pdf(order_id):
     """, (order_id,))
 
     order = cur.fetchone()
-
     if order is None:
         return None
 
-    total = order[0]
+    total = float(order[0])
     date = order[1]
     stall_name = order[2]
-
-    # gets items purchased in the order
 
     cur.execute("""
         SELECT items.item_name, order_items.quantity,
@@ -413,18 +350,22 @@ def download_receipt_pdf(order_id):
 
     items = cur.fetchall()
 
-    # creates receipts folder if it does not exist
-
-    folder = "Receipts"
+    folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Receipts")
     os.makedirs(folder, exist_ok=True)
 
-    # creates unique filename with date and order id
+    if isinstance(date, str):
+        try:
+            date_obj = datetime.strptime(date, "%Y-%m-%d %H:%M:%S")
+            date_text = date_obj.strftime("%Y-%m-%d_%H-%M-%S")
+        except ValueError:
+            date_text = date.replace(":", "-").replace(" ", "_")
+    elif hasattr(date, "strftime"):
+        date_text = date.strftime("%Y-%m-%d_%H-%M-%S")
+    else:
+        date_text = str(date).replace(":", "-").replace(" ", "_")
 
-    date_text = date.strftime("%Y-%m-%d_%H-%M-%S")
     filename = f"Receipt_{order_id}_{date_text}.pdf"
     filepath = os.path.join(folder, filename)
-
-    # creates pdf
 
     pdf = canvas.Canvas(filepath, pagesize=(300, 500))
 
@@ -433,27 +374,23 @@ def download_receipt_pdf(order_id):
 
     pdf.setFont("Helvetica", 11)
     pdf.drawString(40, 430, stall_name)
-    pdf.drawString(40, 410, f"Order Number: {order_id}")
+    pdf.drawString(40, 410, f"Order Number: #{order_id:04d}")
     pdf.drawString(40, 390, str(date))
 
     pdf.line(30, 375, 270, 375)
 
     y = 350
-
     for item in items:
         name = item[0]
         quantity = item[1]
-        price = item[2]
-
+        price = float(item[2])
         subtotal = quantity * price
 
         pdf.setFont("Helvetica", 10)
         pdf.drawString(30, y, f"{quantity}x {name[:18]}")
         pdf.drawRightString(270, y, f"{subtotal:.3f}")
-
         y -= 25
 
-        # new page if receipt is too long
         if y < 70:
             pdf.showPage()
             y = 450
@@ -468,18 +405,12 @@ def download_receipt_pdf(order_id):
     pdf.drawString(75, y - 55, "Thank you for visiting!")
 
     pdf.save()
-
     return filepath
 
 def clear_order(): 
-    # clear order from cart/complete for fresh new 
- 
     cart.clear() 
-    print(cart) 
  
 def get_sales_report(stall_id):
-    # returns total sales, orders and average order value
-
     cur.execute("""
         SELECT COUNT(*), COALESCE(SUM(total_price), 0)
         FROM orders
@@ -487,18 +418,13 @@ def get_sales_report(stall_id):
     """, (stall_id,))
 
     result = cur.fetchone()
-
     total_orders = result[0]
-    total_sales = result[1]
+    total_sales = float(result[1])
+    average_order = (total_sales / total_orders) if total_orders > 0 else 0.0
 
-    if total_orders > 0:
-        average_order = total_sales / total_orders
-    else:
-        average_order = 0
+    return total_orders, total_sales, average_order
 
 def get_best_selling_items(stall_id):
-    # returns the top 5 items based on quantity sold
-
     cur.execute("""
         SELECT items.item_name, SUM(order_items.quantity)
         FROM order_items, items, orders
