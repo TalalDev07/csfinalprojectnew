@@ -1,0 +1,17 @@
+# Carnival POS
+
+Food stall POS system built with:
+- Python
+- Tkinter
+- SQLite
+
+Current Features:
+- Dynamic menu generation from database
+- Add items to cart
+- SQLite backend
+
+Planned Features:
+- Receipt panel
+- Checkout system
+- Revenue reports
+- Ticket mode
